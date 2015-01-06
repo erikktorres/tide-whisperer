@@ -150,8 +150,8 @@ func main() {
 
 		iter := mongoSession.DB("").C(deviceDataCollection).
 			Find(bson.M{"$or": []bson.M{
-			bson.M{"groupId": groupId},
-			bson.M{"_groupId": groupId, "_active": true}}}).
+			bson.M{"groupId": groupId, "time": bson.M{"$exists": true}},
+			bson.M{"_groupId": groupId, "_active": true, "time": bson.M{"$exists": true}}}}).
 			Sort("time").
 			Iter()
 
