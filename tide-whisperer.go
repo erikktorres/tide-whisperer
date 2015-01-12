@@ -3,12 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-
 	httpgzip "github.com/daaku/go.httpgzip"
 	"github.com/gorilla/pat"
 	common "github.com/tidepool-org/go-common"
@@ -19,6 +13,11 @@ import (
 	"github.com/tidepool-org/go-common/clients/shoreline"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 type (
@@ -30,17 +29,6 @@ type (
 	//generic type as device data can be comprised of many things
 	deviceData map[string]interface{}
 )
-
-//these fields are removed from the data to be returned by the API
-func (data deviceData) filterUnwantedFields() {
-	delete(data, "groupId")
-	delete(data, "_id")
-	delete(data, "_groupId")
-	delete(data, "_version")
-	delete(data, "_active")
-	delete(data, "createdTime")
-	delete(data, "modifiedTime")
-}
 
 func main() {
 	const deviceDataCollection = "deviceData"
@@ -149,20 +137,21 @@ func main() {
 		mongoSession := session.Copy()
 		defer mongoSession.Close()
 
-		// the Sort here has to use the same fields in the same order
-		// as the index, or the index won't apply
+		//we don't want to return these fields
+		filter := bson.M{"groupId": 0, "_groupId": 0, "_id": 0, "_version": 0, "_active": 0, "createdTime": 0, "modifiedTime": 0}
+
 		iter := mongoSession.DB("").C(deviceDataCollection).
 			Find(bson.M{"$or": []bson.M{
 			bson.M{"groupId": groupId},
 			bson.M{"_groupId": groupId, "_active": true}}}).
-			Sort("groupId", "_groupId", "time").
+			Select(filterReturn).
+			Sort("time").
 			Iter()
 
 		failureReturnCode := 404
 		first := false
 		var result deviceData //generic type as device data can be comprised of many things
 		for iter.Next(&result) {
-			result.filterUnwantedFields()
 
 			bytes, err := json.Marshal(result)
 			if err != nil {
